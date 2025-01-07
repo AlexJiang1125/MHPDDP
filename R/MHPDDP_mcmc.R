@@ -7,7 +7,7 @@ MHPDDP_mcmc <- function(data = df,
                         T_kernel = 1, c_a = 2, c_b = 3.5,
                         d_a = 1, d_b = 1, alpha_DP = 1,
                         c_a0 = 2, c_b0 = 2, d_a0 = 2, d_b0 = 2,
-                        seed = 123, borrow_mode = "RANDOM"
+                        seed = 123, borrow_mode = c("RANDOM", "IDIO", "COMMON")
                         ) {
 
   # read in the data
