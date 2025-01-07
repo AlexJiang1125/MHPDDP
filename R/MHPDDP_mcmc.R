@@ -1,10 +1,13 @@
+#' @import MCMCpack
+#' @import extraDistr
 MHPDDP_mcmc <- function(data = df,
-                        K = 2, e_alpha = 2, f_alpha = 4,
+                        K = 2, L = 15, e_alpha = 2, f_alpha = 4,
                         T_all = 15000, a_mu = 1, b_mu = 100,
                         B_iter = 10001, delta_mh = 0.015,
                         T_kernel = 1, c_a = 2, c_b = 3.5,
+                        d_a = 1, d_b = 1, alpha_DP = 1,
                         c_a0 = 2, c_b0 = 2, d_a0 = 2, d_b0 = 2,
-                        seed = 123, borrow_mode = c("COMMON", "IDIO", "RANDOM")
+                        seed = 123, borrow_mode = "RANDOM"
                         ) {
 
   # read in the data
@@ -19,18 +22,18 @@ MHPDDP_mcmc <- function(data = df,
   # HP parameters
 
   # common-idiosyncratic mixture weight
-  epsilon <- rbeta(1, 1, 1)
+  epsilon_mcmc <- rbeta(1, 1, 1)
 
   # a change in data structure
   Bvec <- rep(0, N)
   # assign values to true latent structure
   Bvec[1] <- 1
   for (i in 2:N) {
-    if (out$parentdim[i] == 0) {
+    if (data$parentdim[i] == 0) {
       Bvec[i] <- i
     } else {
-      parentid <- out$parent[i]
-      parentrowid <- which(out$id == parentid)
+      parentid <- data$parent[i]
+      parentrowid <- which(data$id == parentid)
       Bvec[i] <- parentrowid
     }
   }
@@ -71,18 +74,18 @@ MHPDDP_mcmc <- function(data = df,
   pos <- 1
   for (j in 1:K) {
     for (k in 1:K) {
-      id_j <- which(out$dim == j)
-      id_k <- which(out$dim == k)
+      id_j <- which(data$dim == j)
+      id_k <- which(data$dim == k)
       id_jk <- expand.grid(id_j, id_k)
       id_jk <- id_jk[id_jk$Var2 - id_jk$Var1 > 0, ]
       id_jk <- id_jk[id_jk$Var2 - id_jk$Var1 < col_max, ]
-      #id_jk <- id_jk[out$parentdim[id_jk$Var1] != 0 , ]
+      #id_jk <- id_jk[data$parentdim[id_jk$Var1] != 0 , ]
       ids[[pos]] <- id_jk
       pos <- pos + 1
     }
   }
 
-  out_tail <- out[out$timestamp < T_all - 0, ]
+  out_tail <- data[data$timestamp < T_all - 0, ]
   ys_truncated <- list()
   for (id_k in 1:K) {
     ys_truncated[[id_k]] <- out_tail[out_tail$dim == id_k,]
@@ -136,7 +139,7 @@ MHPDDP_mcmc <- function(data = df,
 
   for (ii in 2:N) {
     ptemp <- rep(0,min(col_max, ii))
-    ptemp[1] <- log(mu[out$dim[ii]])
+    ptemp[1] <- log(mu[data$dim[ii]])
     id_start <- max(1, ii - col_max + 1)
     id_end <- ii - 1
     # find how many of them will be in the nonzero probability region
@@ -147,9 +150,9 @@ MHPDDP_mcmc <- function(data = df,
     } else {
       id_start_new <- ii - ids_nonzero
       y_evals <- y[ii] - y[id_end:id_start_new]
-      ptemp[2:(ids_nonzero + 1)] <- log(alpha[out$dim[id_end:id_start_new], out$dim[ii]])
+      ptemp[2:(ids_nonzero + 1)] <- log(alpha[data$dim[id_end:id_start_new], data$dim[ii]])
       # OMGGGG
-      ids_pos <- (out$dim[id_end:id_start_new] - 1) * K + out$dim[ii]
+      ids_pos <- (data$dim[id_end:id_start_new] - 1) * K + data$dim[ii]
       vtemp <- rep(0, length(y_evals))
       for (id_m in 1:L) {
         vtemp <- vtemp + dnsbeta(y_evals, as_array[1, id_m, ids_pos],
@@ -169,20 +172,15 @@ MHPDDP_mcmc <- function(data = df,
     for (id_j in 1:K) {
       pos <- (id_i - 1)*K + id_j
       ntrans <- sum(B[cbind(ids[[pos]]$Var2, ids[[pos]]$Var2 - ids[[pos]]$Var1 + 1)])
-      if (STORE_Z) {
-        Z_mcmc[[(id_i - 1)*K + id_j]][1,] <- c(sample(1:L, size = ntrans, prob = p_mcmc[[(id_i - 1)*K + id_j]][1,], replace = TRUE), rep(0, N-ntrans))
-      } else {
-        Z_mcmc[[(id_i - 1)*K + id_j]] <- c(sample(1:(2*L), size = ntrans, prob = c(p0_mcmc[1,]*epsilon, p_mcmc[[(id_i - 1)*K + id_j]][1,]*(1-epsilon)), replace = TRUE), rep(0, N-ntrans))
+      Z_mcmc[[(id_i - 1)*K + id_j]] <- c(sample(1:(2*L), size = ntrans, prob = c(p0_mcmc[1,]*epsilon_mcmc[1], p_mcmc[[(id_i - 1)*K + id_j]][1,]*(1-epsilon_mcmc[1])), replace = TRUE), rep(0, N-ntrans))
       }
-
-    }
   }
 
   for (i in 1:(B_iter-1)) {
     # update HP parts
     ntrans_all <- NA
     for (id_i in 1:K) {
-      ndim <- sum(out$dim == id_i)
+      ndim <- sum(data$dim == id_i)
       for (id_j in 1:K) {
         pos <- (id_i - 1) * K + id_j
         ntrans <- sum(B[cbind(ids[[pos]]$Var2, ids[[pos]]$Var2 - ids[[pos]]$Var1 + 1)])
@@ -200,7 +198,7 @@ MHPDDP_mcmc <- function(data = df,
         truncation_correction <- alpha[id_i, id_j]*alpha_compensator
         alpha[id_i, id_j] <- rgamma(1, e_alpha + ntrans, f_alpha + alpha_compensator)
       }
-      mu[id_i] <- rgamma(1, shape = sum(B[out$dim == id_i,1]) + a_mu, rate = T_all + b_mu)
+      mu[id_i] <- rgamma(1, shape = sum(B[data$dim == id_i,1]) + a_mu, rate = T_all + b_mu)
     }
     # update Z
     # update common parts
@@ -305,7 +303,7 @@ MHPDDP_mcmc <- function(data = df,
     ps_array <- simplify2array(p_mcmc)
     for (ii in 2:N) {
       ptemp <- rep(0,min(col_max, ii))
-      ptemp[1] <- log(mu[out$dim[ii]])
+      ptemp[1] <- log(mu[data$dim[ii]])
       id_start <- max(1, ii - col_max + 1)
       id_end <- ii - 1
       # find how many of them will be in the nonzero probability region
@@ -318,9 +316,9 @@ MHPDDP_mcmc <- function(data = df,
       } else {
         id_start_new <- ii - ids_nonzero
         y_evals <- y[ii] - y[id_end:id_start_new]
-        ptemp[2:(ids_nonzero + 1)] <- log(alpha[out$dim[id_end:id_start_new], out$dim[ii]])
+        ptemp[2:(ids_nonzero + 1)] <- log(alpha[data$dim[id_end:id_start_new], data$dim[ii]])
         # OMGGGG
-        ids_pos <- (out$dim[id_end:id_start_new] - 1) * K + out$dim[ii]
+        ids_pos <- (data$dim[id_end:id_start_new] - 1) * K + data$dim[ii]
         vtemp <- rep(0, length(y_evals))
         for (id_m in 1:L) {
           vtemp <- vtemp + dnsbeta(y_evals, as_array[i+1, id_m, ids_pos],
@@ -346,35 +344,20 @@ MHPDDP_mcmc <- function(data = df,
         y_DP <- interarr[interarr > 0]
         n_DP <- length(y_DP)
         for (j in 1:n_DP) {
-          if (PRIOR_SPEC == "ab") {
-            log_prob_vec1 <- log(p0_mcmc[i+1,]) + dnsbeta(x = y_DP[j],
-                                                          shape1 = a0_mcmc[i+1,],
-                                                          shape2 = b0_mcmc[i+1,],
-                                                          min = 0, max = T_kernel, log = TRUE) +
-              log(epsilon_mcmc[i])
-            log_prob_vec2 <- log(p_mcmc[[(id_i-1)*K + id_j]][i+1,]) + dnsbeta(x = y_DP[j],
-                                                                              shape1 = as_mcmc[[(id_i-1)*K + id_j]][i+1,],
-                                                                              shape2 = bs_mcmc[[(id_i-1)*K + id_j]][i+1,],
-                                                                              min = 0, max = T_kernel, log = TRUE) +
-              log(1-epsilon_mcmc[i])
-            log_prob_vec <- c(log_prob_vec1, log_prob_vec2)
-          } else {
-            log_prob_vec <- log(p_mcmc[i+1,]) + dnsbeta(x = y_DP[j],
-                                                        shape1 = ss_mcmc[i,]*ms_mcmc[i,],
-                                                        shape2 = ss_mcmc[i,]*(1-ms_mcmc[i+1,]),
-                                                        min = 0, max = T_kernel, log = TRUE)
-          }
-          if (STORE_Z) {
-            Z_mcmc[[(id_i-1)*K + id_j]][i+1,j] <- rcat_lpw(log_prob_vec)
-          } else {
-            Z_mcmc[[(id_i-1)*K + id_j]][j] <- rcat_lpw(log_prob_vec)
-          }
+          log_prob_vec1 <- log(p0_mcmc[i+1,]) + dnsbeta(x = y_DP[j],
+                                                        shape1 = a0_mcmc[i+1,],
+                                                        shape2 = b0_mcmc[i+1,],
+                                                        min = 0, max = T_kernel, log = TRUE) +
+            log(epsilon_mcmc[i])
+          log_prob_vec2 <- log(p_mcmc[[(id_i-1)*K + id_j]][i+1,]) + dnsbeta(x = y_DP[j],
+                                                                            shape1 = as_mcmc[[(id_i-1)*K + id_j]][i+1,],
+                                                                            shape2 = bs_mcmc[[(id_i-1)*K + id_j]][i+1,],
+                                                                            min = 0, max = T_kernel, log = TRUE) +
+            log(1-epsilon_mcmc[i])
+          log_prob_vec <- c(log_prob_vec1, log_prob_vec2)
+          Z_mcmc[[(id_i-1)*K + id_j]][j] <- rcat_lpw(log_prob_vec)
         }
-        if (STORE_Z) {
-          Z_mcmc[[(id_i-1)*K + id_j]][i+1,n_DP:N] <- 0
-        } else {
-          Z_mcmc[[(id_i-1)*K + id_j]][(n_DP+1):N] <- 0
-        }
+        Z_mcmc[[(id_i-1)*K + id_j]][(n_DP+1):N] <- 0
       }
     }
     alphas_mcmc[[i+1]] <- alpha
