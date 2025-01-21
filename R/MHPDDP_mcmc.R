@@ -1,5 +1,6 @@
 #' @import MCMCpack
 #' @import extraDistr
+#' @export
 MHPDDP_mcmc <- function(data = df,
                         K = 2, L = 15, e_alpha = 2, f_alpha = 4,
                         T_all = 15000, a_mu = 1, b_mu = 100,

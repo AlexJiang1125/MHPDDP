@@ -1,5 +1,6 @@
 #' @import MCMCpack
 #' @import extraDistr
+#' @export
 MHPDDP_svi <- function(data = df,
                        K = 2, L = 15,
                        split_ratio = 0.1,

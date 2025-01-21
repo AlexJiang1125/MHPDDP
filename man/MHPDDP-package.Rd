@@ -6,10 +6,10 @@
 \alias{MHPDDP-package}
 \title{MHPDDP: MHP}
 \description{
-What the package does (one paragraph).
+MHPDDP.
 }
 \author{
-\strong{Maintainer}: Alex Z. Jiang \email{first.last@example.com} (\href{https://orcid.org/YOUR-ORCID-ID}{ORCID})
+\strong{Maintainer}: Alex Z. Jiang \email{jiang14@uw.edu} (\href{https://orcid.org/YOUR-ORCID-ID}{ORCID})
 
 }
 \keyword{internal}
