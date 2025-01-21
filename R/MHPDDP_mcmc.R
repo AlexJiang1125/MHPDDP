@@ -11,7 +11,7 @@ MHPDDP_mcmc <- function(data = df,
                         ) {
 
   # read in the data
-  y <- df$timestamp
+  y <- data$timestamp
   N <- length(y)
 
   # DP related hyperparameters

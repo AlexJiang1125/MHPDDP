@@ -4,7 +4,7 @@
 # here we sample a 'random window' and then select elements
 # that falls within the random window
 # we also split the info matrix about indexs
-generate_subsample <- function(out_all, ids_all, split_ratio) {
+generate_subsample <- function(out_all, ids_all, split_ratio, T_all, K) {
   # generate random start and end dates
   # T_all <- length(y[[1]])
   time_start <- runif(1, 0, T_all - T_all * split_ratio)
@@ -29,7 +29,7 @@ generate_subsample <- function(out_all, ids_all, split_ratio) {
     for (id_j in 1:K) {
       ids[[(id_i - 1) * K + id_j]]$Var1_new <- ids[[(id_i - 1) * K + id_j]]$Var1 - id_min + 1
       ids[[(id_i - 1) * K + id_j]]$Var2_new <- ids[[(id_i - 1) * K + id_j]]$Var2 - id_min + 1
-      
+
     }
   }
   res <- list(

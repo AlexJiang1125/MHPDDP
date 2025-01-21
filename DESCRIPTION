@@ -2,9 +2,9 @@ Package: MHPDDP
 Title: MHP
 Version: 0.0.0.9000
 Authors@R: 
-    person("Alex Z.", "Jiang", , "first.last@example.com", role = c("aut", "cre"),
+    person("Alex Z.", "Jiang", , "jiang14@uw.edu", role = c("aut", "cre"),
            comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
+Description: MHPDDP.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
